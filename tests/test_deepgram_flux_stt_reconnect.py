@@ -295,7 +295,6 @@ async def test_stopping_does_not_reconnect(transport):
     assert server.handshakes == 1
 
 
-
 async def _wait_for(condition, timeout: float = 2.0) -> bool:
     deadline = time.monotonic() + timeout
     while not condition() and time.monotonic() < deadline:
