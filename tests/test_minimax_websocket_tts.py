@@ -528,7 +528,7 @@ def test_task_start_sends_the_text_normalization_mode(settings, mode):
     assert "text_normalization" not in service._task_start_message()["voice_setting"]
 
 
-@pytest.mark.parametrize("tone", [None, [], ["Dograh/(ˈdoʊɡrɑː)", "SRL/esse erre elle"]])
+@pytest.mark.parametrize("tone", [None, [], ["Bolo/(ˈboʊloʊ)", "SRL/esse erre elle"]])
 def test_task_start_sends_the_pronunciation_dict_only_when_set(tone):
     service = MiniMaxTTSService(
         api_key="test-key", settings=MiniMaxTTSService.Settings(pronunciation_dict=tone)

@@ -34,7 +34,6 @@ from pipecat.metrics.metrics import STTUsageMetricsData
 from pipecat.pipeline.worker import PipelineParams
 from pipecat.services.deepgram.flux.stt import DeepgramFluxSTTService
 from pipecat.services.deepgram.flux.stt_base import DeepgramFluxSTTSettings
-from pipecat.services.dograh.flux.stt import DograhFluxSTTService
 from pipecat.tests.utils import SleepFrame, run_test
 
 FRAME_SECONDS = 0.02
@@ -124,7 +123,7 @@ def _audio_frames(seconds: float) -> list:
     return frames
 
 
-@pytest.fixture(params=["direct", "managed"])
+@pytest.fixture(params=["direct"])
 def transport(request):
     return request.param
 
@@ -138,11 +137,7 @@ async def _run(server: _FakeFlux, seconds: float, configure=None, *, transport):
         process_response=server.process_response,
     ) as s:
         url = f"ws://127.0.0.1:{s.sockets[0].getsockname()[1]}"
-        service = (
-            DograhFluxSTTService(api_key="test-key", base_url=url, correlation_id="call-123")
-            if transport == "managed"
-            else DeepgramFluxSTTService(api_key="test-key", url=url)
-        )
+        service = DeepgramFluxSTTService(api_key="test-key", url=url)
         if configure:
             configure(service)
         down, _ = await run_test(
@@ -152,13 +147,6 @@ async def _run(server: _FakeFlux, seconds: float, configure=None, *, transport):
         )
         # Give a connection still being served time to record what it received.
         await asyncio.sleep(0.1)
-    if transport == "managed":
-        for request in server.requests:
-            assert request.headers["Authorization"] == "Bearer test-key"
-            assert urlsplit(request.path).path == "/api/v1/stt/flux"
-            query = parse_qs(urlsplit(request.path).query)
-            assert query["correlation_id"] == ["call-123"]
-            assert query["mps_billing_version"] == ["2"]
     return service, down
 
 
@@ -305,78 +293,6 @@ async def test_stopping_does_not_reconnect(transport):
     await asyncio.sleep(0.3)
 
     assert server.handshakes == 1
-
-
-@pytest.mark.asyncio
-async def test_managed_quota_rejection_does_not_retry_before_confirmation():
-    requests = []
-
-    async def reject(websocket):
-        requests.append(websocket.request)
-        await websocket.send(
-            json.dumps({"type": "error", "error": "quota_exceeded", "message": "Credits exhausted"})
-        )
-        await websocket.close(code=1008, reason="Quota exceeded")
-
-    async with serve(reject, "127.0.0.1", 0) as server:
-        service = DograhFluxSTTService(
-            api_key="test-key", base_url=f"ws://127.0.0.1:{server.sockets[0].getsockname()[1]}"
-        )
-        errors = []
-
-        @service.event_handler("on_error")
-        async def on_error(_service, frame):
-            errors.append(frame.error)
-
-        await run_test(service, frames_to_send=_audio_frames(0.3))
-
-    assert len(requests) == 1
-    assert not service.is_usable
-    assert any("Credits exhausted" in error for error in errors)
-
-
-@pytest.mark.asyncio
-async def test_managed_reconnect_applies_updated_settings_and_keeps_billing():
-    requests = []
-    configure_messages = []
-
-    async def handle(websocket):
-        requests.append(websocket.request)
-        await websocket.send(json.dumps({"type": "Connected", "request_id": "test"}))
-        async for message in websocket:
-            if isinstance(message, str):
-                data = json.loads(message)
-                if data.get("type") == "Configure":
-                    configure_messages.append(data)
-                    # Drop before acknowledging: the next connection must use
-                    # the updated values rather than the original URL.
-                    websocket.transport.abort()
-                    return
-
-    async with serve(handle, "127.0.0.1", 0) as server:
-        service = DograhFluxSTTService(
-            api_key="test-key",
-            base_url=f"ws://127.0.0.1:{server.sockets[0].getsockname()[1]}",
-            correlation_id="call-123",
-            settings=DeepgramFluxSTTSettings(eot_threshold=0.7),
-        )
-        await run_test(
-            service,
-            frames_to_send=[
-                SleepFrame(sleep=0.1),
-                STTUpdateSettingsFrame(delta=DeepgramFluxSTTSettings(eot_threshold=0.8)),
-                *_audio_frames(0.4),
-            ],
-        )
-
-    assert configure_messages == [{"type": "Configure", "thresholds": {"eot_threshold": 0.8}}]
-    assert len(requests) == 2
-    assert parse_qs(urlsplit(requests[1].path).query)["eot_threshold"] == ["0.8"]
-    for request in requests:
-        assert request.headers["Authorization"] == "Bearer test-key"
-        query = parse_qs(urlsplit(request.path).query)
-        assert query["correlation_id"] == ["call-123"]
-        assert query["mps_billing_version"] == ["2"]
 
 
 async def _wait_for(condition, timeout: float = 2.0) -> bool:

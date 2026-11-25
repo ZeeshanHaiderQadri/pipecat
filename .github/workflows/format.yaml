@@ -64,3 +64,5 @@ jobs:
         run: |
           uv run scripts/cli/update_registry.py
           git diff --exit-code src/pipecat/cli/registry/_imports.py src/pipecat/cli/registry/_configs.py
+
+# Touched to force GitHub to re-index the workflow definition.

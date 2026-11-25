@@ -73,7 +73,7 @@ KEY_OPTIONAL_SERVICES = {
     OLLamaLLMService,
     OpenAILLMService,
     OpenAISTTService,
-    # Dograh fork: self-hosted Speaches takes any key and substitutes "none".
+    # Bolo fork: self-hosted Speaches takes any key and substitutes "none".
     SpeachesLLMService,
     SpeachesSTTService,
 }
