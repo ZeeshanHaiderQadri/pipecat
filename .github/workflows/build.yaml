@@ -39,3 +39,5 @@ jobs:
 
       - name: Install project in editable mode
         run: uv pip install --editable .
+
+# Touched to force GitHub to re-index the workflow definition.

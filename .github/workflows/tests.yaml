@@ -68,3 +68,5 @@ jobs:
       - name: Test with pytest
         run: |
           uv run pytest -n 8
+
+# Touched to force GitHub to re-index the workflow definition.
