@@ -1673,7 +1673,7 @@ def _capture_class(frames):
 
 
 #
-# Dograh: Indic language coverage for the non-realtime service.
+# Bolo: Indic language coverage for the non-realtime service.
 #
 
 
