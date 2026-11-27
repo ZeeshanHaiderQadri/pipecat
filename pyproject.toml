@@ -50,7 +50,13 @@ dependencies = [
     "num2words>=0.5.14",
     # Required by LocalSmartTurnAnalyzerV3
     # Inlined here instead of using a self-referential extra for Poetry compatibility.
-    "onnxruntime>=1.24.3,<2",
+    #
+    # The floor is 1.23.2, not 1.24.3, because onnxruntime stopped shipping
+    # Intel-macOS (x86_64) wheels at 1.24.0: from then on only macosx_*_arm64
+    # exists. A desktop build on an Intel Mac therefore cannot install 1.24+
+    # at all, and 1.23.2 is the newest release that still has an x86_64 wheel.
+    # Every other platform resolves to the newest release as usual.
+    "onnxruntime>=1.23.2,<2",
 ]
 
 [project.urls]
